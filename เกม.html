@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>โคลงภาพพระราชพงศาวดาร — เกมการศึกษา Hands-Free</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&family=Sriracha&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<style>
+*{box-sizing:border-box}
+:root{
+ --gold:#ffd66b;--gold2:#f5a623;--ink:#20170f;--cream:#fff8e7;
+ --glass:rgba(28,19,10,.62);--glass2:rgba(255,248,231,.12);
+ --danger:#ff4d5a;--ok:#62e6a7;--cyan:#75d8ff;
+}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100b07;color:#fff;font-family:Mali,sans-serif}
+button{font:inherit}
+#camera{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.70;background:#17100b}
+#shade{position:fixed;inset:0;background:
+ radial-gradient(circle at 50% 35%,rgba(255,213,116,.12),transparent 45%),
+ linear-gradient(180deg,rgba(8,5,2,.28),rgba(8,5,2,.72));pointer-events:none}
+#handsCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.screen{position:relative;z-index:5;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.hidden{display:none!important}
+.glass{background:linear-gradient(135deg,rgba(40,25,12,.76),rgba(255,245,216,.10));border:1px solid rgba(255,214,107,.34);box-shadow:0 20px 70px rgba(0,0,0,.35),inset 0 1px rgba(255,255,255,.14);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+h1,h2,h3{margin:.2em 0}
+h1{font-family:Sriracha,cursive;font-size:clamp(36px,6vw,76px);color:var(--gold);text-shadow:0 3px 20px #000}
+h2{font-family:Sriracha,cursive;color:#ffe9a6;font-size:clamp(28px,4vw,48px)}
+p{line-height:1.65}
+#welcome .card{max-width:820px;text-align:center;padding:34px;border-radius:30px}
+.badge{display:inline-block;padding:7px 14px;border-radius:999px;background:rgba(255,214,107,.16);border:1px solid rgba(255,214,107,.38);color:#ffe8a2;margin:4px}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0;text-align:left}
+.rule{padding:14px;border-radius:16px;background:rgba(0,0,0,.22);font-size:14px}
+.btn{border:0;border-radius:18px;padding:14px 24px;cursor:pointer;color:#2a1805;background:linear-gradient(135deg,#ffe69a,#f4ad39);font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);transition:.15s;min-height:52px}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.07)}
+.btn:active{transform:scale(.97)}
+.btn.secondary{color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2)}
+#camPreview{width:min(330px,70vw);aspect-ratio:16/9;border-radius:18px;object-fit:cover;transform:scaleX(-1);margin:14px auto;border:2px solid rgba(255,214,107,.35)}
+#camStatus{font-size:13px;opacity:.85;min-height:22px}
+#topbar{position:fixed;z-index:10;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;gap:12px;pointer-events:none}
+.hud{padding:9px 14px;border-radius:14px;background:rgba(17,10,5,.58);border:1px solid rgba(255,214,107,.28);backdrop-filter:blur(8px)}
+#timer{font-size:28px;font-weight:700;color:#ffe59b;min-width:82px;text-align:center}
+#timer.danger{color:var(--danger);animation:pulse .5s infinite alternate}
+@keyframes pulse{to{transform:scale(1.12);filter:drop-shadow(0 0 9px rgba(255,77,90,.8))}}
+#cameraWarning{position:fixed;z-index:20;top:0;left:50%;transform:translateX(-50%);padding:7px 18px;background:rgba(160,24,31,.9);border-radius:0 0 14px 14px;font-size:13px;box-shadow:0 5px 20px #0006}
+#game{justify-content:flex-start;padding-top:82px}
+#questionPanel{width:min(920px,94vw);padding:20px 24px;border-radius:24px;text-align:center}
+#qTag{font-size:13px;color:#ffd66b}
+#question{font-size:clamp(19px,2.7vw,30px);line-height:1.45;margin-top:8px}
+#options{position:fixed;z-index:12;left:50%;bottom:6vh;transform:translateX(-50%);width:min(980px,94vw);display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.option{position:relative;min-height:130px;border-radius:25px;border:2px solid rgba(255,214,107,.32);background:linear-gradient(145deg,rgba(40,24,10,.82),rgba(255,255,255,.08));color:#fff;cursor:pointer;padding:20px;box-shadow:0 15px 40px #0006;overflow:hidden;transition:.15s}
+.option:hover{border-color:#ffd66b;transform:translateY(-3px)}
+.option .letter{font-size:24px;color:#ffd66b;font-weight:700;display:block;margin-bottom:7px}
+.option .txt{font-size:clamp(17px,2vw,23px)}
+#cursor{position:fixed;z-index:30;width:54px;height:54px;border-radius:50%;border:3px solid #ff9e2c;box-shadow:0 0 20px #ff9e2c, inset 0 0 15px #ff9e2c55;pointer-events:none;display:none;transform:translate(-50%,-50%)}
+#cursor:after{content:"";position:absolute;inset:6px;border-radius:50%;border:3px dashed #ffd08a}
+#progress{position:absolute;inset:-5px;border-radius:50%;transform:rotate(-90deg)}
+#progress circle{fill:none;stroke:#ff9e2c;stroke-width:5;stroke-linecap:round;stroke-dasharray:132;stroke-dashoffset:132}
+.feedbackCard,.summaryCard{width:min(900px,94vw);max-height:88vh;overflow:auto;border-radius:28px;padding:30px}
+.feedbackHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.result{font-size:22px;font-weight:700}
+.result.ok{color:var(--ok)}.result.bad{color:#ff9d9d}
+.answerBox{padding:14px 16px;border-radius:16px;background:rgba(0,0,0,.25);margin:14px 0}
+.explain{white-space:pre-line;line-height:1.75}
+.summaryCard{text-align:center}
+.score{font-size:76px;font-weight:700;color:#ffd66b;text-shadow:0 0 25px #ffd66b55}
+.rank{font-family:Sriracha,cursive;font-size:clamp(25px,4vw,42px);color:#ffe8a4}
+.stars{font-size:35px;letter-spacing:7px;margin:10px}
+.small{font-size:13px;opacity:.78}
+@media(max-width:700px){
+ .rules{grid-template-columns:1fr}
+ #game{padding-top:72px}
+ #questionPanel{padding:15px}
+ #options{bottom:3vh;gap:10px}
+ .option{min-height:120px;padding:14px;border-radius:19px}
+ .option .txt{font-size:16px}
+ .feedbackCard,.summaryCard{padding:20px}
+}
+</style>
+</head>
+<body>
+<video id="camera" autoplay playsinline muted></video>
+<div id="shade"></div>
+<canvas id="handsCanvas"></canvas>
+
+<section id="welcome" class="screen">
+ <div class="card glass">
+  <div class="badge">📜 เกมการศึกษาภาษาไทย • 40 ข้อ</div>
+  <h1>โคลงภาพพระราชพงศาวดาร</h1>
+  <p>ย้อนรอยเรื่องราวประวัติศาสตร์ไทย ผ่าน <b>พระสุริโยทัยขาดคอช้าง</b> และ <b>พันท้ายนรสิงห์โขนเรือหัก</b><br>
+  ใช้ปลายนิ้วชี้เลื่อน Cursor ไปยังคำตอบ แล้ว <b>วางค้าง 1.5 วินาที</b> เพื่อยืนยัน</p>
+  <div class="rules">
+   <div class="rule">☝️ <b>ชี้</b><br>ปลายนิ้วชี้คือ Cursor</div>
+   <div class="rule">🟠 <b>ค้าง</b><br>ครบ 1.5 วินาทีเพื่อเลือก</div>
+   <div class="rule">⏱️ <b>เวลา</b><br>ข้อละ 20 วินาที</div>
+  </div>
+  <video id="camPreview" autoplay playsinline muted></video>
+  <div id="camStatus">กำลังขอสิทธิ์เข้าถึงกล้อง…</div>
+  <p class="small">หากกล้องใช้ไม่ได้ เกมจะเปลี่ยนเป็นโหมดเมาส์/หน้าจอสัมผัสโดยอัตโนมัติ</p>
+  <button id="startBtn" class="btn">ย้อนเวลาด้วยฝ่ามือ (เริ่มเกม!)</button>
+ </div>
+</section>
+
+<section id="game" class="screen hidden">
+ <div id="topbar">
+  <div class="hud">📜 ข้อ <span id="qNo">1</span>/40</div>
+  <div class="hud">🏆 คะแนน <span id="score">0</span></div>
+  <div id="timer" class="hud">20</div>
+ </div>
+ <div id="cameraWarning" class="hidden">⚠️ ไม่พบการตรวจจับมือ — ใช้เมาส์หรือแตะหน้าจอเพื่อเลือกได้</div>
+ <div id="questionPanel" class="glass">
+  <div id="qTag">ตอนสำคัญ</div>
+  <div id="question"></div>
+ </div>
+ <div id="options"></div>
+</section>
+
+<section id="feedback" class="screen hidden">
+ <div class="feedbackCard glass">
+  <div class="feedbackHead">
+   <h2 id="feedbackTitle">เฉลย</h2><div id="feedbackResult" class="result"></div>
+  </div>
+  <div class="answerBox"><b>คำตอบที่ถูกต้อง:</b> <span id="correctAnswer"></span></div>
+  <div class="explain" id="explanation"></div>
+  <div style="text-align:center;margin-top:22px"><button id="nextBtn" class="btn">ลุยต่อข้อถัดไปกันเลย!</button></div>
+ </div>
+</section>
+
+<section id="summary" class="screen hidden">
+ <div class="summaryCard glass">
+  <div class="badge">🏛️ หอประวัติศาสตร์หลวง</div>
+  <h2>จบการประลองปัญญา!</h2>
+  <div class="score"><span id="finalScore">0</span><span style="font-size:32px"> / 40</span></div>
+  <div id="stars" class="stars">☆☆☆☆☆</div>
+  <div id="rank" class="rank"></div>
+  <p id="rankDesc"></p>
+  <button id="restartBtn" class="btn">เล่นใหม่อีกครั้งด้วยฝ่ามือ</button>
+ </div>
+</section>
+
+<div id="cursor"><svg id="progress" viewBox="0 0 50 50"><circle cx="25" cy="25" r="21"/></svg></div>
+
+<script>
+const questions = [
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"พระสุริโยทัยทรงกระทำสิ่งใดเมื่อเห็นพระมหาจักรพรรดิอยู่ในอันตราย?",c:"ทรงไสช้างเข้าขวางและป้องกันพระสวามี",w:"ทรงถอยทัพกลับไปอยุธยาโดยลำพัง",e:"พระสุริโยทัยทรงมีพระราชหฤทัยเด็ดเดี่ยว เสด็จเข้าขวางพระเจ้าแปรเพื่อปกป้องพระมหาจักรพรรดิ จนทรงได้รับอันตรายถึงสิ้นพระชนม์บนคอช้าง"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"คู่สงครามสำคัญในเหตุการณ์ที่เกี่ยวกับพระสุริโยทัยคือฝ่ายใด?",c:"กองทัพพม่าโดยพระเจ้าแปร",w:"กองทัพล้านนาโดยพระเจ้าติโลกราช",e:"เรื่องราวกล่าวถึงสงครามกับพม่าที่มีพระเจ้าแปรเป็นผู้นำกองทัพ ฝ่ายอยุธยามีพระมหาจักรพรรดิและพระสุริโยทัยเป็นบุคคลสำคัญ"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"พระสุริโยทัยทรงเข้าขวางการรบด้วยพาหนะใด?",c:"ช้างศึก",w:"ม้าศึก",e:"เหตุการณ์เป็นการชนช้าง พระสุริโยทัยทรงขับช้างเข้าขวางพระมหาจักรพรรดิ จึงเป็นภาพวีรกรรมสำคัญของพระองค์"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"คุณธรรมเด่นที่สะท้อนจากวีรกรรมของพระสุริโยทัยคือข้อใด?",c:"ความเสียสละและความกล้าหาญ",w:"ความเห็นแก่ตัวและการหลบหนี",e:"พระองค์ทรงยอมเสี่ยงพระชนม์เพื่อปกป้องพระมหาจักรพรรดิ จึงสะท้อนความกล้าหาญ ความเสียสละ และความจงรักภักดี"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"คำว่า “ขวัญ” ในบริบทวรรณคดีมักสื่อถึงสิ่งใด?",c:"กำลังใจหรือสิ่งยึดเหนี่ยวทางใจ",w:"อาวุธประจำกาย",e:"ขวัญในภาษาไทยมีความหมายเกี่ยวกับกำลังใจและสิ่งที่ทำให้จิตใจมั่นคง การใช้คำนี้ช่วยสื่ออารมณ์ของผู้คนในยามศึกสงคราม"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"“ทศพล” หมายถึงอะไร?",c:"พระพุทธเจ้า ผู้มีกำลังสิบประการ",w:"แม่ทัพผู้มีทหารสิบกอง",e:"ทศพลเป็นพระนามหรือคำเรียกพระพุทธเจ้าที่หมายถึงผู้มีกำลังสิบประการ จัดเป็นศัพท์วรรณคดีที่มีรากจากภาษาบาลี"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"ข้อใดอธิบายคุณค่าด้านสังคมของเรื่องได้เหมาะสมที่สุด?",c:"ยกย่องความเสียสละเพื่อส่วนรวมและผู้เป็นที่รัก",w:"ส่งเสริมการเอาชนะด้วยกำลังโดยไม่คำนึงถึงคุณธรรม",e:"วรรณคดีไม่ได้มีคุณค่าเพียงบันทึกเหตุการณ์ แต่ยังถ่ายทอดค่านิยมเรื่องความรับผิดชอบ ความเสียสละ และความกล้าหาญ"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"เหตุการณ์พระสุริโยทัยสิ้นพระชนม์เกิดขึ้นในบริบทใด?",c:"การทำยุทธหัตถีหรือการชนช้างในสงคราม",w:"การแข่งขันเรือในงานประเพณี",e:"แก่นของตอนนี้อยู่ในสนามรบและเหตุการณ์ยุทธหัตถี ซึ่งเป็นรูปแบบการรบที่มีช้างศึกเป็นพาหนะ"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"การนำภาพเหตุการณ์ทางประวัติศาสตร์มาแต่งเป็นโคลงมีจุดมุ่งหมายสำคัญอย่างไร?",c:"ถ่ายทอดเหตุการณ์และคุณค่าทางอารมณ์ให้จดจำได้",w:"เปลี่ยนประวัติศาสตร์ให้เป็นเรื่องตลก",e:"โคลงภาพช่วยย่อเหตุการณ์สำคัญให้เห็นภาพ มีอารมณ์ และสะท้อนคุณค่าของบุคคลกับเหตุการณ์"},
+{topic:"พระสุริโยทัยขาดคอช้าง",q:"คำว่า “เผ้า” ในภาษาโบราณมักหมายถึงอะไร?",c:"กษัตริย์หรือผู้เป็นใหญ่",w:"ชาวนา",e:"คำว่าเผ้าเป็นศัพท์วรรณคดีที่ใช้กล่าวถึงพระมหากษัตริย์หรือผู้เป็นใหญ่ ต้องพิจารณาบริบทประกอบ"},
+{topic:"โคลงสี่สุภาพ",q:"โคลงภาพพระราชพงศาวดารใช้คำประพันธ์ประเภทใดเป็นหลัก?",c:"โคลงสี่สุภาพ",w:"กลอนสุภาพ",e:"โคลงภาพพระราชพงศาวดารเป็นงานที่ใช้โคลงสี่สุภาพ ซึ่งมีแบบแผนเรื่องจำนวนคำ ตำแหน่งคำเอกคำโท และสัมผัส"},
+{topic:"โคลงสี่สุภาพ",q:"โคลงสี่สุภาพหนึ่งบทมีจำนวนบาทเท่าใด?",c:"4 บาท",w:"3 บาท",e:"ชื่อโคลงสี่สุภาพสัมพันธ์กับโครงสร้าง 4 บาท โดยแต่ละบาทมีข้อกำหนดด้านคำและเสียงตามฉันทลักษณ์"},
+{topic:"โคลงสี่สุภาพ",q:"ข้อใดเป็นลักษณะสำคัญของโคลงสี่สุภาพ?",c:"มีข้อบังคับเรื่องคำเอก คำโท และสัมผัส",w:"ไม่มีข้อบังคับด้านเสียงเลย",e:"โคลงสี่สุภาพมีฉันทลักษณ์ชัดเจน โดยเฉพาะตำแหน่งคำเอกคำโทและสัมผัสระหว่างบาท"},
+{topic:"โคลงสี่สุภาพ",q:"คำว่า “เอกเจ็ดโทสี่” กล่าวถึงอะไร?",c:"จำนวนตำแหน่งคำเอกและคำโทตามฉันทลักษณ์",w:"จำนวนตัวละครเอกและตัวร้าย",e:"เอกเจ็ดโทสี่เป็นคำเรียกช่วยจำข้อบังคับด้านตำแหน่งคำเอก 7 แห่งและคำโท 4 แห่งในโคลงสี่สุภาพ"},
+{topic:"โคลงสี่สุภาพ",q:"คุณค่าของฉันทลักษณ์ต่อวรรณคดีคือข้อใด?",c:"ช่วยสร้างจังหวะ เสียง และความงามของภาษา",w:"ทำให้เนื้อเรื่องไม่ต้องมีความหมาย",e:"ฉันทลักษณ์ช่วยควบคุมจังหวะและเสียง ทำให้ถ้อยคำไพเราะและมีรูปแบบเฉพาะ แต่ยังต้องสื่อความหมายควบคู่กัน"},
+{topic:"ศัพท์วรรณคดี",q:"คำว่า “มล้าง” มีความหมายใกล้เคียงกับข้อใด?",c:"ทำลายหรือกำจัด",w:"ประดับตกแต่ง",e:"มล้างเป็นศัพท์วรรณคดีที่มีความหมายไปในทางทำลาย กำจัด หรือทำให้หมดสิ้น"},
+{topic:"ศัพท์วรรณคดี",q:"คำว่า “พลุก” ในบริบทวรรณคดีเกี่ยวกับผู้คน หมายถึงอะไรได้เหมาะสมที่สุด?",c:"มากมายหรือแน่นขนัด",w:"เงียบสงัดไร้ผู้คน",e:"พลุกใช้สื่อความหมายเกี่ยวกับความมากมายหรือการมีผู้คนจำนวนมาก เช่น พลุกพล่าน"},
+{topic:"ศัพท์วรรณคดี",q:"“แวง” ในวลีหรือบริบทวรรณคดีอาจสื่อถึงอะไร?",c:"บริเวณหรือเขตพื้นที่",w:"อาวุธชนิดหนึ่ง",e:"แวงเป็นคำโบราณที่ต้องอ่านตามบริบท ในบางการใช้สัมพันธ์กับบริเวณหรือเขต ไม่ควรตีความเป็นชื่ออาวุธโดยอัตโนมัติ"},
+{topic:"ศัพท์วรรณคดี",q:"“ขวัญแวง” สื่อความหมายเกี่ยวกับสิ่งใด?",c:"ความหวาดหวั่นหรือขวัญที่สั่นคลอน",w:"ความมั่งคั่งจากการค้า",e:"เมื่อขวัญสั่นคลอนหรือแวงหวาด ย่อมสื่ออารมณ์หวาดหวั่นและความไม่มั่นคงทางใจของผู้คน"},
+{topic:"ศัพท์วรรณคดี",q:"คำว่า “เอกอุ” หมายถึงอะไร?",c:"ยอดเยี่ยม เป็นเลิศ",w:"ต่ำต้อยที่สุด",e:"เอกอุใช้ขยายสิ่งที่โดดเด่นหรือเป็นเลิศ สื่อความหมายว่าดีเยี่ยมอย่างยิ่ง"},
+{topic:"พันท้ายนรสิงห์",q:"พันท้ายนรสิงห์มีหน้าที่ใดเกี่ยวข้องกับเหตุการณ์โขนเรือหัก?",c:"นายท้ายเรือพระที่นั่ง",w:"ช่างทำพระแสง",e:"พันท้ายนรสิงห์เป็นนายท้ายเรือพระที่นั่ง เมื่อเรือชนกิ่งไม้จนโขนเรือหัก จึงเกิดเหตุการณ์สำคัญตามเรื่อง"},
+{topic:"พันท้ายนรสิงห์",q:"เรือพระที่นั่งเกิดเหตุสำคัญที่ใด?",c:"คลองโคกขาม",w:"แม่น้ำเจ้าพระยาหน้าวัดอรุณ",e:"เหตุการณ์โขนเรือหักของพันท้ายนรสิงห์เกิดขึ้นที่คลองโคกขาม ซึ่งมีความคดเคี้ยวและเดินเรือยาก"},
+{topic:"พันท้ายนรสิงห์",q:"เหตุใดพันท้ายนรสิงห์จึงขอรับโทษ?",c:"เพื่อรักษากฎและแสดงความรับผิดชอบต่อหน้าที่",w:"เพราะต้องการขึ้นเป็นกษัตริย์",e:"พันท้ายนรสิงห์ยึดถือกฎและความรับผิดชอบ แม้ความผิดเกิดจากเหตุสุดวิสัย ก็ยังขอรับโทษตามพระราชกำหนด"},
+{topic:"พันท้ายนรสิงห์",q:"หลักคุณธรรมเด่นที่สุดของพันท้ายนรสิงห์คือข้อใด?",c:"ความซื่อสัตย์และยึดมั่นในหน้าที่",w:"การหลีกเลี่ยงความรับผิดชอบ",e:"การยอมรับผลของการกระทำและยึดมั่นในกฎแม้ตนเองจะได้รับโทษ แสดงถึงความซื่อสัตย์และความรับผิดชอบ"},
+{topic:"พันท้ายนรสิงห์",q:"คลองโคกขามมีลักษณะอย่างไรที่เป็นอุปสรรคต่อการเดินเรือ?",c:"คดเคี้ยวและเดินเรือได้ยาก",w:"เป็นทะเลเปิดกว้างไม่มีสิ่งกีดขวาง",e:"คลองโคกขามขึ้นชื่อว่าคดเคี้ยวมาก การเดินเรือพระที่นั่งจึงต้องอาศัยความชำนาญของนายท้าย"},
+{topic:"พันท้ายนรสิงห์",q:"โขนเรือหักหมายถึงส่วนใดของเรือ?",c:"ส่วนหัวเรือด้านหน้า",w:"เสากระโดงเรือด้านหลัง",e:"โขนเรือคือส่วนประดับบริเวณหัวเรือ เมื่อเกิดเหตุชนจนโขนเรือหัก จึงกลายเป็นเหตุให้พันท้ายนรสิงห์ต้องรับผิดตามกฎ"},
+{topic:"พันท้ายนรสิงห์",q:"พระเจ้าเสือในเรื่องนี้เกี่ยวข้องกับพันท้ายนรสิงห์อย่างไร?",c:"ทรงเป็นพระมหากษัตริย์และเป็นผู้มีพระราชอำนาจตัดสินโทษ",w:"เป็นคู่แข่งในการแข่งเรือ",e:"เรื่องพันท้ายนรสิงห์กล่าวถึงพระเจ้าเสือ ซึ่งทรงมีพระราชอำนาจและทรงเกี่ยวข้องกับการตัดสินตามพระราชกำหนด"},
+{topic:"พันท้ายนรสิงห์",q:"ข้อใดสะท้อนแนวคิดเรื่องหลักนิติธรรมจากเรื่องพันท้ายนรสิงห์ได้ดีที่สุด?",c:"กฎควรมีผลและได้รับการเคารพ แม้ผู้กระทำจะเป็นผู้ใกล้ชิด",w:"กฎใช้เฉพาะกับคนธรรมดาเท่านั้น",e:"เรื่องนี้ชี้ให้เห็นค่านิยมการเคารพกฎหมายและหน้าที่ แม้ผู้กระทำจะอยู่ในสถานะใกล้ชิดพระมหากษัตริย์"},
+{topic:"พันท้ายนรสิงห์",q:"บทเรียนสำคัญที่นักเรียนสามารถนำไปใช้ในชีวิตประจำวันคืออะไร?",c:"รับผิดชอบต่อหน้าที่และยอมรับผลของการกระทำ",w:"หลีกเลี่ยงความรับผิดชอบเมื่อเกิดปัญหา",e:"สาระสำคัญสามารถนำมาปรับใช้กับชีวิตได้ เช่น ซื่อสัตย์ ทำหน้าที่ให้ดีที่สุด และรับผิดชอบเมื่อเกิดข้อผิดพลาด"},
+{topic:"คุณค่าทางวรรณคดี",q:"ข้อใดเป็นคุณค่าด้านวรรณศิลป์ของโคลงภาพพระราชพงศาวดาร?",c:"ใช้ถ้อยคำกระชับ มีจังหวะและภาพพจน์ช่วยสร้างภาพเหตุการณ์",w:"ใช้ภาษาร้อยแก้วแบบข่าวโดยไม่มีศิลปะ",e:"โคลงมีข้อจำกัดทางฉันทลักษณ์แต่สามารถใช้ถ้อยคำอย่างประณีต ทำให้เหตุการณ์กระชับและเกิดภาพในจินตนาการ"},
+{topic:"คุณค่าทางวรรณคดี",q:"การศึกษาคำศัพท์โบราณช่วยให้นักเรียนเข้าใจเรื่องอย่างไร?",c:"เข้าใจความหมายและบริบทของบทประพันธ์ได้แม่นยำขึ้น",w:"ทำให้ไม่จำเป็นต้องอ่านเนื้อเรื่อง",e:"ศัพท์โบราณจำนวนมากมีความหมายต่างจากภาษาปัจจุบัน การรู้ความหมายช่วยให้ตีความภาพ เหตุการณ์ และอารมณ์ได้ถูกต้อง"},
+{topic:"คุณค่าทางวรรณคดี",q:"เหตุใดวรรณคดีเรื่องนี้จึงเชื่อมโยงภาษาไทยกับประวัติศาสตร์ได้ดี?",c:"นำเหตุการณ์และบุคคลจริงมาถ่ายทอดด้วยศิลปะการประพันธ์",w:"แต่งขึ้นโดยไม่มีบริบททางประวัติศาสตร์เลย",e:"โคลงภาพพระราชพงศาวดารทำให้ผู้อ่านเรียนรู้เหตุการณ์ บุคคล และค่านิยมทางประวัติศาสตร์ผ่านภาษาและวรรณศิลป์"},
+{topic:"ประวัติศาสตร์และการศึก",q:"คำว่า “ยุทธหัตถี” หมายถึงอะไร?",c:"การรบหรือชนกันบนหลังช้าง",w:"การรบทางเรือ",e:"ยุทธหัตถีเป็นการทำสงครามบนหลังช้าง เป็นคำสำคัญที่เชื่อมโยงกับตอนพระสุริโยทัยขาดคอช้าง"},
+{topic:"ประวัติศาสตร์และการศึก",q:"เหตุใดช้างศึกจึงมีความสำคัญต่อสงครามในอดีต?",c:"ใช้เป็นพาหนะในการรบและแสดงกำลังของกองทัพ",w:"ใช้เฉพาะขนส่งเสบียงในเมือง",e:"ช้างศึกมีบทบาทด้านการรบ การบัญชาการ และการแสดงกำลังในสงครามสมัยโบราณ"},
+{topic:"ประวัติศาสตร์และการศึก",q:"“ศาลเพียงตา” ในความเชื่อไทยเกี่ยวข้องกับอะไร?",c:"สถานที่หรือศาลสำหรับสิ่งศักดิ์สิทธิ์/เจ้าที่",w:"สถานที่เก็บอาวุธของทหาร",e:"ศาลเพียงตาเป็นศาลขนาดเล็กที่เกี่ยวข้องกับความเชื่อเรื่องสิ่งศักดิ์สิทธิ์หรือเจ้าที่ การตีความต้องดูบริบทของเรื่อง"},
+{topic:"ประวัติศาสตร์และการศึก",q:"ข้อใดเป็นประโยชน์ของการอ่านพงศาวดารในเชิงการเรียนรู้?",c:"ช่วยเห็นเหตุการณ์ในอดีตและพิจารณาค่านิยมของคนแต่ละยุค",w:"ใช้ทำนายอนาคตได้อย่างแน่นอน",e:"พงศาวดารเป็นหลักฐานหรือเรื่องเล่าทางประวัติศาสตร์ที่ช่วยให้เห็นเหตุการณ์และมุมมองของผู้คนในอดีต แต่ควรอ่านอย่างมีวิจารณญาณ"},
+{topic:"คุณค่าทางจริยธรรม",q:"หากเกิดความผิดพลาดโดยไม่ได้ตั้งใจ ควรนำบทเรียนจากพันท้ายนรสิงห์มาใช้อย่างไร?",c:"ยอมรับความจริง แก้ไข และรับผิดชอบตามสมควร",w:"ปกปิดความผิดเพื่อไม่ให้ตนเองเดือดร้อน",e:"การรับผิดชอบไม่ได้แปลว่าต้องลงโทษตนเองเสมอไป แต่ควรซื่อสัตย์ ยอมรับข้อเท็จจริง และแก้ไขผลกระทบอย่างเหมาะสม"},
+{topic:"คุณค่าทางจริยธรรม",q:"ข้อใดเปรียบเทียบคุณธรรมของสองเหตุการณ์ได้เหมาะสมที่สุด?",c:"พระสุริโยทัยเด่นด้านความเสียสละ ส่วนพันท้ายนรสิงห์เด่นด้านความซื่อสัตย์ต่อหน้าที่",w:"ทั้งสองเรื่องสอนให้หลีกเลี่ยงหน้าที่",e:"ทั้งสองเหตุการณ์ต่างยกย่องการทำหน้าที่อย่างกล้าหาญ แต่เน้นต่างมิติ: พระสุริโยทัยเน้นเสียสละเพื่อปกป้อง ส่วนพันท้ายนรสิงห์เน้นซื่อสัตย์และรับผิดชอบ"},
+{topic:"ศัพท์วรรณคดี",q:"คำว่า “มล้าง” หากพบในบทที่กล่าวถึงศัตรู ควรตีความอย่างไร?",c:"กำจัดหรือทำลายศัตรู",w:"ต้อนรับศัตรูด้วยไมตรี",e:"เมื่อมล้างอยู่ในบริบทการศึก ความหมายมักไปทางกำจัด ทำลาย หรือปราบให้หมดสิ้น"},
+{topic:"โคลงสี่สุภาพ",q:"ข้อใดเป็นวิธีอ่านโคลงสี่สุภาพที่ดีที่สุดเพื่อจับใจความ?",c:"อ่านให้เห็นทั้งความหมาย คำสำคัญ และฉันทลักษณ์",w:"นับจำนวนคำอย่างเดียวโดยไม่สนใจความหมาย",e:"การอ่านโคลงควรพิจารณาทั้งความหมาย คำศัพท์ ภาพพจน์ และข้อบังคับฉันทลักษณ์ จึงจะเข้าใจงานได้รอบด้าน"},
+{topic:"สรุปองค์ความรู้",q:"หากต้องเลือกคำหนึ่งคำแทนแนวคิดร่วมของทั้งสองตอน คำใดเหมาะที่สุด?",c:"ความรับผิดชอบ",w:"ความประมาท",e:"ทั้งพระสุริโยทัยและพันท้ายนรสิงห์ต่างถูกนำเสนอผ่านการทำหน้าที่และความรับผิดชอบ แม้บริบทและรูปแบบการเสียสละจะแตกต่างกัน"},
+{topic:"สรุปองค์ความรู้",q:"การเรียนเรื่องนี้ให้ได้ประโยชน์สูงสุดควรทำอย่างไร?",c:"เชื่อมโยงเนื้อหา ประวัติศาสตร์ ศัพท์ และคุณธรรมเข้าด้วยกัน",w:"ท่องคำตอบโดยไม่อ่านเหตุผล",e:"การเรียนวรรณคดีมีคุณค่ามากขึ้นเมื่อเชื่อมโยงเนื้อเรื่องกับประวัติศาสตร์ ภาษา ฉันทลักษณ์ และบทเรียนด้านคุณธรรม"}
+];
+
+let state={index:0,score:0,answered:false,answerTimer:null,countdown:null,holdTarget:null,holdStart:0,holdRAF:null};
+const $=id=>document.getElementById(id);
+const camera=$("camera"), preview=$("camPreview"), canvas=$("handsCanvas"), ctx=canvas.getContext("2d");
+let handReady=false, mediaStream=null, hands=null, mpCamera=null;
+
+function show(id){["welcome","game","feedback","summary"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function resize(){canvas.width=innerWidth*devicePixelRatio;canvas.height=innerHeight*devicePixelRatio;canvas.style.width=innerWidth+"px";canvas.style.height=innerHeight+"px";ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
+addEventListener("resize",resize); resize();
+
+async function initCamera(){
+ try{
+  mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},audio:false});
+  camera.srcObject=mediaStream; preview.srcObject=mediaStream;
+  $("camStatus").textContent="✓ พร้อมใช้งานกล้องและระบบตรวจจับมือ";
+  initHands();
+ }catch(e){
+  $("camStatus").textContent="⚠️ ไม่สามารถเข้าถึงกล้อง — จะเล่นด้วยเมาส์/หน้าจอสัมผัสได้";
+  $("cameraWarning").classList.remove("hidden");
+ }
+}
+function initHands(){
+ if(!window.Hands||!window.Camera){$("cameraWarning").classList.remove("hidden");return}
+ hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+ hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.55,minTrackingConfidence:.55});
+ hands.onResults(onHands);
+ mpCamera=new Camera(camera,{onFrame:async()=>{try{await hands.send({image:camera})}catch(e){handReady=false}},width:1280,height:720});
+ mpCamera.start();
+}
+function onHands(res){
+ ctx.clearRect(0,0,innerWidth,innerHeight);
+ if(!res || !res.multiHandLandmarks || !res.multiHandLandmarks.length){
+  handReady=false;
+  $("cursor").style.display="none";
+  return;
+}
+ handReady=true;$("cameraWarning").classList.add("hidden");
+ const lm=res.multiHandLandmarks[0], p=lm[8];
+ const x=(1-p.x)*innerWidth,y=p.y*innerHeight;
+ $("cursor").style.left=x+"px";$("cursor").style.top=y+"px";$("cursor").style.display="block";
+ drawHand(lm); processHover(x,y);
+}
+function drawHand(lm){
+ const links=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+ ctx.save();ctx.lineWidth=3;ctx.shadowBlur=14;ctx.shadowColor="#ffd66b";ctx.strokeStyle="#ffd66b";ctx.fillStyle="#fff0a5";
+ links.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo((1-lm[a].x)*innerWidth,lm[a].y*innerHeight);ctx.lineTo((1-lm[b].x)*innerWidth,lm[b].y*innerHeight);ctx.stroke()});
+ lm.forEach(p=>{ctx.beginPath();ctx.arc((1-p.x)*innerWidth,p.y*innerHeight,4,0,Math.PI*2);ctx.fill()});ctx.restore();
+}
+function processHover(x,y){
+ const el=document.elementFromPoint(x,y);
+ const target=el?.closest(".hand-target");
+ if(target && target.dataset.choice!==undefined){
+  if(state.holdTarget!==target){state.holdTarget=target;state.holdStart=performance.now();cancelAnimationFrame(state.holdRAF);holdAnim()}
+ }else{
+  state.holdTarget=null;state.holdStart=0;cancelAnimationFrame(state.holdRAF);setProgress(0);
+ }
+}
+function holdAnim(){
+ if(!state.holdTarget||state.answered)return;
+ const pct=Math.min(1,(performance.now()-state.holdStart)/1500);setProgress(pct);
+ if(pct>=1){const t=state.holdTarget;state.holdTarget=null;setProgress(0);choose(+t.dataset.choice,"hand");return}
+ state.holdRAF=requestAnimationFrame(holdAnim);
+}
+function setProgress(p){$("progress").querySelector("circle").style.strokeDashoffset=132*(1-p)}
+function shuffleOptions(q){
+ const arr=[{text:q.c,correct:true},{text:q.w,correct:false}];
+ if(Math.random()<.5)arr.reverse();
+ $("options").innerHTML=arr.map((o,i)=>`<button class="option hand-target" data-choice="${o.correct?1:0}"><span class="letter">${i===0?"ก":"ข"}</span><span class="txt">${o.text}</span></button>`).join("");
+ document.querySelectorAll(".option").forEach(b=>b.addEventListener("click",()=>choose(+b.dataset.choice,"mouse"));
+  b.addEventListener("touchend",(ev)=>{ev.preventDefault();choose(+b.dataset.choice,"mouse")},{passive:false});
+}
+function startQuestion(){
+ const q=questions[state.index];state.answered=false;
+ if(!handReady && !mediaStream) $("cameraWarning").classList.remove("hidden");state.holdTarget=null;state.holdStart=0;
+ $("qNo").textContent=state.index+1;$("score").textContent=state.score;$("qTag").textContent=q.topic;$("question").textContent=q.q;
+ shuffleOptions(q);show("game");startTimer();
+}
+function startTimer(){
+ clearInterval(state.countdown);let t=20;$("timer").textContent=t;$("timer").classList.remove("danger");
+ state.countdown=setInterval(()=>{t--;$("timer").textContent=t;if(t<=5)$("timer").classList.add("danger");if(t<=0){clearInterval(state.countdown);choose(0,"timeout")}},1000);
+}
+function choose(correct,source){
+ if(state.answered)return;state.answered=true;clearInterval(state.countdown);cancelAnimationFrame(state.holdRAF);setProgress(0);
+ const q=questions[state.index], isCorrect=!!correct;
+ if(isCorrect)state.score++;
+ playSound(source==="timeout"?"timeout":isCorrect?"correct":"wrong");
+ $("feedbackResult").textContent=source==="timeout"?"⏰ หมดเวลา":isCorrect?"✓ ตอบถูก! +1 คะแนน":"✗ ตอบผิด";
+ $("feedbackResult").className="result "+(isCorrect?"ok":"bad");
+ $("correctAnswer").textContent=q.c;
+ $("explanation").textContent=q.e;
+ $("feedbackTitle").textContent=`第 ${state.index+1} ข้อ • เฉลย`;
+ show("feedback");
+}
+$("nextBtn").onclick=()=>{if(state.index<questions.length-1){state.index++;startQuestion()}else showSummary()};
+function showSummary(){
+ $("finalScore").textContent=state.score;
+ let rank,desc,stars;
+ if(state.score>=35){rank="👑 มหาเสนาบดี / ผู้รักษาหอประวัติศาสตร์หลวง";desc="สุดยอดอัจฉริยะ! ความรู้แน่นและจับประเด็นได้ยอดเยี่ยม";stars="★★★★★"}
+ else if(state.score>=25){rank="⚔️ ทหารเอกพิทักษ์พระพงศาวดาร";desc="เก่งกาจและมีความรู้แน่นปึก!";stars="★★★★☆"}
+ else if(state.score>=15){rank="🛡️ พลาธิการกรุงเก่า";desc="มีความรู้พื้นฐานดีพอตัว ลองทบทวนศัพท์และรายละเอียดอีกนิด";stars="★★★☆☆"}
+ else {rank="🏹 พลทหารใหม่หัดรบ";desc="ควรกลับไปอ่านและทบทวนเรื่องโคลงภาพพระราชพงศาวดารอีกครั้ง";stars="★★☆☆☆"}
+ $("rank").textContent=rank;$("rankDesc").textContent=desc;$("stars").textContent=stars;show("summary");
+}
+$("startBtn").onclick=()=>{playSound("click");state={...state,index:0,score:0};startQuestion()};
+$("restartBtn").onclick=()=>{playSound("click");state.index=0;state.score=0;startQuestion()};
+document.addEventListener("pointerdown",()=>{try{audioCtx.resume()}catch{}},{once:true});
+
+let audioCtx=null,bgmTimer=null;
+function audio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();return audioCtx}
+function tone(freq,dur,type="sine",gain=.05,delay=0){
+ const a=audio(),o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(0,a.currentTime+delay);g.gain.linearRampToValueAtTime(gain,a.currentTime+delay+.015);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+delay+dur);o.connect(g).connect(a.destination);o.start(a.currentTime+delay);o.stop(a.currentTime+delay+dur+.03)
+}
+function playSound(kind){
+ try{
+  if(kind==="click")tone(520,.07,"square",.035);
+  if(kind==="correct"){tone(523,.13,"sine",.055);tone(659,.13,"sine",.055,.11);tone(784,.22,"sine",.055,.22)}
+  if(kind==="wrong"){tone(220,.22,"sawtooth",.045);tone(155,.3,"sawtooth",.04,.16)}
+  if(kind==="timeout"){tone(660,.12,"square",.04);tone(330,.12,"square",.04,.14);tone(660,.12,"square",.04,.28);tone(330,.22,"square",.04,.42)}
+ }catch{}
+}
+function startBGM(){
+ try{
+  audio();clearInterval(bgmTimer);let notes=[392,440,523,587,659,587,523,440],i=0;
+  bgmTimer=setInterval(()=>{tone(notes[i++%notes.length],.22,"triangle",.012)},520)
+ }catch{}
+}
+// เริ่มกล้องแบบไม่บล็อกการเล่น: ถ้ากล้อง/เบราว์เซอร์ไม่รองรับ เกมยังเล่นด้วยเมาส์/ทัชได้
+(async()=>{
+  try{
+    if(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia==="function"){
+      await initCamera();
+    }else{
+      $("camStatus").textContent="ℹ️ เบราว์เซอร์นี้ไม่รองรับกล้อง — ใช้เมาส์หรือแตะหน้าจอได้";
+      $("cameraWarning").classList.remove("hidden");
+    }
+  }catch(err){
+    $("camStatus").textContent="⚠️ เปิดกล้องไม่ได้ — ใช้เมาส์หรือแตะหน้าจอได้";
+    $("cameraWarning").classList.remove("hidden");
+  }
+})();
+document.addEventListener("click",()=>{try{startBGM()}catch{}},{once:true});
+document.addEventListener("touchend",()=>{try{startBGM()}catch{}},{once:true,passive:true});
+</script>
+</body>
+</html>
